@@ -5,7 +5,7 @@ Development proceeds one phase at a time. Each phase should be independently run
 | Phase | Description | Status |
 |---|---|---|
 | 0 | Planning & repository foundation (this phase: docs, license, gitignore, env example) | ✅ Done |
-| 1 | Backend skeleton — FastAPI app, health-check endpoint, project structure, pytest set up. No DB, no AI calls. | ⏳ Planned |
+| 1 | Backend skeleton — FastAPI app, health-check endpoint, project structure, pytest set up. No DB, no AI calls. | 🟡 Implemented — Ruff verification pending |
 | 2 | Frontend skeleton — Next.js + TypeScript + Tailwind + shadcn/ui, one page calling the backend health-check. | ⏳ Planned |
 | 3 | Database & auth — Neon Postgres with pgvector enabled, auth wired up, workspace/user data model. | ⏳ Planned |
 | 4 | Document upload & storage — upload endpoint, file storage, document metadata records. | ⏳ Planned |
@@ -22,3 +22,4 @@ Development proceeds one phase at a time. Each phase should be independently run
 - Phases are intentionally small. A phase should not start until the previous one works end-to-end for its own scope.
 - No phase beyond the current one should be scaffolded "early" — this avoids half-finished code sitting unused and keeps the repo honest about what's actually working.
 - This table should be updated whenever a phase's status changes.
+- **Phase 1 known limitation:** `ruff check`/`ruff format --check` could not be run on the development machine used to build this phase — a Windows Application Control policy blocks execution of the downloaded `ruff.exe`, unrelated to the code itself. `pytest`, the app import check, and a live `uvicorn` + `GET /health` request all passed. Ruff config is in place in `apps/api/pyproject.toml`; running the lint/format checks on a machine without this restriction is a follow-up, not a blocker for later phases.

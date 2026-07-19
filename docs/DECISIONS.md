@@ -4,6 +4,14 @@ A running log of significant architecture decisions and the reasoning behind the
 
 ---
 
+## 2026-07-19 — `apps/api` packaging: Hatchling build backend + editable install
+
+**Decision:** `apps/api/pyproject.toml` declares `hatchling` under `[build-system]` (a build-time-only dependency, not runtime or dev) and the package is installed with `pip install -e ".[dev]"`.
+
+**Why:** FastAPI's tests need `from app.main import app` to work without manual `sys.path` hacking. Hatchling is the current minimal-config standard for turning a plain `app/` folder into an installable package (no `setup.py`), and editable install means code edits are picked up immediately with no reinstall step. `requires-python = ">=3.12"` is set as the project's minimum supported version, and Ruff's `target-version` is pinned to `"py312"` to match it — deliberately *not* matching the local dev interpreter (Python 3.14.6), so Ruff would flag any accidental use of 3.13+/3.14-only syntax as a portability problem.
+
+---
+
 ## 2026-07-19 — Monorepo folder naming: `apps/web` + `apps/api`
 
 **Decision:** Use `apps/web` (Next.js frontend) and `apps/api` (FastAPI backend) rather than flat top-level `frontend/` and `backend/` folders.
