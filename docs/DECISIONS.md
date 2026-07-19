@@ -4,6 +4,14 @@ A running log of significant architecture decisions and the reasoning behind the
 
 ---
 
+## 2026-07-19 — `apps/web` Phase 2 frontend skeleton: npm, App Router, server-only health fetch
+
+**Decision:** `apps/web` is scaffolded with `create-next-app` using npm, TypeScript, Tailwind CSS, ESLint, the App Router with a `src/` directory, and the `@/*` import alias. shadcn/ui is initialized (its current default style, "Neutral" base color) with only `card`, `badge`, and `button` added. The homepage's `GET /health` check runs as a server-side fetch inside an `async` Server Component (`src/lib/api.ts`), reading a server-only `API_BASE_URL` environment variable (no `NEXT_PUBLIC_` prefix, default `http://127.0.0.1:8000`, 3-second timeout, `cache: "no-store"`), with the page marked `export const dynamic = "force-dynamic"`.
+
+**Why:** npm matches the approved stack and avoids introducing a second package manager alongside the backend's pip-based tooling. The App Router + `src/` dir is the current Next.js convention and keeps app code separate from config files. Fetching `/health` server-side means the request happens in Node.js, not the browser — so no CORS configuration is needed on the FastAPI backend for this phase, and the backend's base URL/config is never bundled into client JavaScript. `force-dynamic` keeps `npm run build` working without the backend running, since the page's data depends on a live request rather than build-time content. This corrected `.env.example`'s original Phase-0 placeholder (`NEXT_PUBLIC_API_BASE_URL`), which assumed a client-exposed variable rather than a server-only one.
+
+---
+
 ## 2026-07-19 — `apps/api` packaging: Hatchling build backend + editable install
 
 **Decision:** `apps/api/pyproject.toml` declares `hatchling` under `[build-system]` (a build-time-only dependency, not runtime or dev) and the package is installed with `pip install -e ".[dev]"`.
