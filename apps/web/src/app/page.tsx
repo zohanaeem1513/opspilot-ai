@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ServiceStatus } from "@/components/service-status";
 import { getHealth } from "@/lib/api";
+import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,10 @@ const PLANNED_CAPABILITIES = [
 
 export default async function Home() {
   const health = await getHealth();
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-4 py-12 sm:px-6">
@@ -33,6 +38,13 @@ export default async function Home() {
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-3xl font-semibold tracking-tight">OpsPilot AI</h1>
           <Badge variant="secondary">Portfolio MVP</Badge>
+          <Button
+            variant="outline"
+            className="ml-auto"
+            render={<a href={user ? "/dashboard" : "/login"} />}
+          >
+            {user ? "Dashboard" : "Log in"}
+          </Button>
         </div>
         <p className="max-w-xl text-muted-foreground">
           An AI business-operations platform skeleton: this page is a Phase 2
