@@ -22,7 +22,7 @@ docs/      — planning and architecture docs
 
 ## Stack constraints
 
-- Zero-cost stack only: Neon (Postgres + pgvector) free plan, Gemini free tier for the hosted demo, Ollama for local dev, local Sentence Transformers for embeddings, Vercel + a free Python-compatible host for deployment.
+- Zero-cost stack only: Supabase (Postgres + pgvector) free plan, Gemini free tier for the hosted demo, Ollama for local dev, local Sentence Transformers for embeddings, Vercel + a free Python-compatible host for deployment.
 - All AI provider calls must go through a single provider-abstraction layer in the backend — never call Gemini/Ollama-specific APIs directly from business logic.
 - Frontend never holds AI provider keys or talks to AI providers directly; it only calls the backend API.
 
