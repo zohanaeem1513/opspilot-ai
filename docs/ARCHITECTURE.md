@@ -28,11 +28,12 @@ opspilot-ai/
 - Owns the **AI provider abstraction**: one internal interface that the rest of the backend calls, implemented by a Gemini adapter (hosted demo) and an Ollama adapter (local dev). Business logic never references a specific provider's request/response format directly — this keeps provider swaps cheap and keeps agent/RAG code testable without live API calls.
 - Owns all secrets and all outbound calls to external services (AI providers, database, storage). The frontend never holds an AI provider key and never calls an AI provider directly.
 
-### Data — PostgreSQL + pgvector (Neon free plan), optionally Supabase (auth/storage)
+### Data — PostgreSQL + pgvector (Supabase free plan)
 
+- Supabase hosts the project's single Postgres database (free plan). The backend connects directly with SQLAlchemy's async engine (`asyncpg` driver) — the Supabase Python client is not used, keeping database access as plain, portable SQL/ORM code.
 - Postgres holds relational data (users, workspaces, documents, complaints, tasks, agent run/trace records, feedback).
 - The `pgvector` extension stores document chunk embeddings in the same database, avoiding a separate vector store.
-- Supabase is a candidate for authentication and file storage (documents), to avoid hand-rolling auth — final choice to be confirmed at Phase 3.
+- Supabase Auth is the planned authentication provider (Phase 3B): `profiles.id` will become a foreign key to `auth.users.id`. Supabase Storage is a candidate for document file storage from Phase 4 onward.
 
 ## Data flow (planned)
 
@@ -42,7 +43,7 @@ opspilot-ai/
 
 ## Why this stack (zero-cost, portfolio-appropriate)
 
-- **Neon free plan**: managed Postgres with `pgvector` support at no cost, avoiding local database setup for a hosted demo.
+- **Supabase free plan**: managed Postgres with `pgvector` support at no cost, avoiding local database setup for a hosted demo, with a path to add Supabase Auth/Storage later without introducing a second platform.
 - **Gemini free tier / Ollama**: Gemini gives a working hosted public demo without a paid key; Ollama lets development continue offline/free and keeps the provider abstraction honest by supporting two real providers from day one.
 - **Local Sentence Transformers embeddings**: avoids paying for or rate-limiting on a hosted embeddings API for what is, for MVP purposes, a modest volume of documents.
 - **Vercel + a free Python-compatible host**: standard, well-documented, zero-cost deployment path for a Next.js + FastAPI split app.
