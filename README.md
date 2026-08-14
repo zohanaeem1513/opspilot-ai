@@ -2,8 +2,8 @@
 
 An intelligent business-operations platform: upload internal documents, ask questions over them with cited sources (RAG), analyze customer complaints with an AI agent, draft responses, recommend actions, require human approval before anything consequential happens, and track the resulting tasks — with full visibility into what the AI agent did and why.
 
-> **Status: Phase 3A — Database Foundation (done).**
-> `apps/api` is a working, runnable FastAPI backend with `GET /health` and `GET /ready` (real Postgres connectivity check) endpoints, plus a Supabase Postgres schema (`profiles`, `workspaces`, `workspace_members`) defined with SQLAlchemy 2.x async models and Alembic migrations. `apps/web` is a working, runnable Next.js frontend that displays the real status of `GET /health`. pytest (mocked database behavior, no real credentials needed), `ruff check`/`ruff format --check`, the app import check, `npm run lint`/`typecheck`/`build`, and a live frontend↔backend check have all passed. Migrations have not been applied to any real database, and no auth is wired up yet (planned for Phase 3B). See [docs/ROADMAP.md](docs/ROADMAP.md) for what's built vs. planned and [docs/DATABASE.md](docs/DATABASE.md) for schema details.
+> **Status: Phase 3B — Supabase Authentication (in progress).**
+> `apps/api` now also verifies Supabase Auth access tokens locally (HS256 or JWKS, whichever the Supabase project uses — no algorithm is hard-coded), exposes a protected `GET /me`, and creates a `profiles` row for each newly authenticated user (`profiles.id` now foreign-keys to `auth.users.id`). `pytest` (25/25, mocked/local-only, no real Supabase credentials), `ruff check`, and `ruff format --check` all pass. `apps/web` has Supabase login/registration/logout pages, a session-refreshing middleware guarding `/dashboard`, and an auth-aware homepage. `npm install`, `npm run lint`, `npm run typecheck`, and `npm run build` all pass. No real Supabase project has been created or connected to, no `.env`/`.env.local` was created, and no migration has been applied to any database — so the auth flow has not yet been exercised against a live login. See [docs/ROADMAP.md](docs/ROADMAP.md) for what's built vs. planned and [docs/DECISIONS.md](docs/DECISIONS.md) for the Phase 3B design.
 
 This is a portfolio project built to demonstrate practical, production-style AI engineering: Retrieval-Augmented Generation, stateful AI agents, tool calling, human-in-the-loop workflows, structured outputs, agent execution tracing, and evaluation/feedback — on top of a real FastAPI + Next.js application.
 
@@ -46,7 +46,9 @@ opspilot-ai/
 
 - FastAPI backend is implemented and runnable, with `GET /health` (liveness) and `GET /ready` (Postgres connectivity check — 200 when reachable, 503 when `DATABASE_URL` is missing or the database can't be reached) endpoints.
 - Supabase Postgres schema is defined via SQLAlchemy 2.x async models (`profiles`, `workspaces`, `workspace_members`) with Alembic migrations, but **has not been applied to any real database** — see [docs/DATABASE.md](docs/DATABASE.md).
-- pytest passed (health-check, readiness, and database-session test suites — all using mocked database behavior, no real Supabase credentials required).
+- Supabase Auth access tokens are verified locally (`app/core/security.py`) — HS256 with a shared secret or JWKS with asymmetric keys, whichever the Supabase project actually uses; no algorithm is hard-coded, and no Supabase SDK or service-role key is involved.
+- A protected `GET /me` endpoint and an app-level profile get-or-create (`app/api/deps.py`) demonstrate the auth flow end-to-end; `profiles.id` now has a foreign key to `auth.users.id` (migration `0002`, not yet applied to any real database).
+- pytest passed — 25/25, covering health-check, readiness, database-session, JWT verification (both signing paths), and `/me` route test suites, all using mocked/local-only behavior, no real Supabase credentials required.
 - App import check passed.
 - Live `GET /health` check against a running `uvicorn` server passed.
 - `ruff check` and `ruff format --check` both pass with no findings.
@@ -58,8 +60,9 @@ opspilot-ai/
 - `npm run lint`, `npm run typecheck`, and `npm run build` all passed; `build` succeeds without the backend running.
 - A live check against a running FastAPI backend passed, and the graceful "Unavailable" fallback was verified by stopping the backend and reloading the page.
 - Manual visual verification of the layout at a narrow/mobile viewport is **pending** — responsive Tailwind classes are implemented, but no browser/viewport tool was available in the development environment to confirm the result visually.
+- **New in Phase 3B:** `/login`, `/register`, `/dashboard` pages, session-refreshing middleware (`src/middleware.ts`), and Supabase browser/server client helpers (`src/lib/supabase/`), using `@supabase/supabase-js` and `@supabase/ssr`. `npm run lint`, `npm run typecheck`, and `npm run build` all pass with these additions. Not yet manually verified against a real login — that requires a real Supabase project, which has not been created (see `docs/DECISIONS.md`).
 
-No AI integration has been built yet, and no data has been written to a real database. Development proceeds one phase at a time; see the roadmap for details.
+No AI integration has been built yet, no data has been written to a real database, and no real Supabase project has been created or connected to. Development proceeds one phase at a time; see the roadmap for details.
 
 To run the backend locally:
 
