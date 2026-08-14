@@ -29,3 +29,28 @@ export async function getHealth(): Promise<HealthResult> {
     return { ok: false };
   }
 }
+
+export interface MeResponse {
+  id: string;
+}
+
+export type MeResult = { ok: true; data: MeResponse } | { ok: false };
+
+export async function getMe(accessToken: string): Promise<MeResult> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/me`, {
+      cache: "no-store",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS),
+    });
+
+    if (!response.ok) {
+      return { ok: false };
+    }
+
+    const data = (await response.json()) as MeResponse;
+    return { ok: true, data };
+  } catch {
+    return { ok: false };
+  }
+}
