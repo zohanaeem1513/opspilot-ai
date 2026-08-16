@@ -8,7 +8,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { LogoutButton } from "@/components/auth/logout-button";
-import { getMe } from "@/lib/api";
+import { WorkspaceManager } from "@/components/workspaces/workspace-manager";
+import { getMe, listWorkspaces } from "@/lib/api";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +29,9 @@ export default async function DashboardPage() {
   } = await supabase.auth.getSession();
 
   const me = session ? await getMe(session.access_token) : { ok: false as const };
+  const workspacesResult = session
+    ? await listWorkspaces(session.access_token)
+    : { ok: false as const, status: 0, message: "Your session has expired." };
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-4 py-12 sm:px-6">
@@ -66,6 +70,11 @@ export default async function DashboardPage() {
           )}
         </CardContent>
       </Card>
+
+      <WorkspaceManager
+        initialWorkspaces={workspacesResult.ok ? workspacesResult.data : []}
+        initialError={workspacesResult.ok ? null : workspacesResult.message}
+      />
     </div>
   );
 }

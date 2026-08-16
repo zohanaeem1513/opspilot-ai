@@ -10,7 +10,7 @@ A small business team (e.g. a support/ops team) that wants AI assistance answeri
 
 ## MVP feature set
 
-All of the following are **planned**; none are implemented yet (see `docs/ROADMAP.md` for phase-by-phase status).
+The following describe the target MVP feature set; see `docs/ROADMAP.md` for which are implemented so far (as of this writing, items 1 and 2 are done — the rest are still planned).
 
 1. **User authentication** — sign up / log in, scoped to a business workspace.
 2. **Business workspace** — a tenant boundary; a workspace's documents, complaints, and tasks are isolated from other workspaces.

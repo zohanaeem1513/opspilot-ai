@@ -22,6 +22,7 @@ dev = [
     "pytest",
     "httpx",
     "ruff",
+    "aiosqlite",
 ]
 
 [tool.hatch.build.targets.wheel]

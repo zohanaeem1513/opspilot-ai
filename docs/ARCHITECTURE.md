@@ -1,6 +1,6 @@
 # OpsPilot AI — Architecture
 
-> This document describes the *planned* architecture. As of Phase 0, none of it is implemented — see `docs/ROADMAP.md` for current status.
+> This document describes the target architecture for the full MVP. Not all of it is implemented yet — see `docs/ROADMAP.md` for current phase-by-phase status.
 
 ## Monorepo layout
 
@@ -33,7 +33,7 @@ opspilot-ai/
 - Supabase hosts the project's single Postgres database (free plan). The backend connects directly with SQLAlchemy's async engine (`asyncpg` driver) — the Supabase Python client is not used, keeping database access as plain, portable SQL/ORM code.
 - Postgres holds relational data (users, workspaces, documents, complaints, tasks, agent run/trace records, feedback).
 - The `pgvector` extension stores document chunk embeddings in the same database, avoiding a separate vector store.
-- Supabase Auth is the planned authentication provider (Phase 3B): `profiles.id` will become a foreign key to `auth.users.id`. Supabase Storage is a candidate for document file storage from Phase 4 onward.
+- Supabase Auth is the authentication provider (Phase 3B): `profiles.id` is a foreign key to `auth.users.id`. Supabase Storage is a candidate for document file storage from Phase 4 onward.
 
 ## Data flow (planned)
 

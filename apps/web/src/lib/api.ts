@@ -54,3 +54,102 @@ export async function getMe(accessToken: string): Promise<MeResult> {
     return { ok: false };
   }
 }
+
+export interface Workspace {
+  id: string;
+  name: string;
+  role: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type WorkspaceApiResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; status: number; message: string };
+
+const WORKSPACE_TIMEOUT_MS = 5000;
+
+async function extractErrorMessage(response: Response): Promise<string> {
+  try {
+    const body = (await response.json()) as { detail?: unknown };
+    if (typeof body.detail === "string") {
+      return body.detail;
+    }
+    if (Array.isArray(body.detail) && body.detail.length > 0) {
+      const firstError = body.detail[0] as { msg?: string };
+      if (typeof firstError.msg === "string") {
+        return firstError.msg;
+      }
+    }
+  } catch {
+    // response body wasn't JSON — fall through to the generic message below
+  }
+  return `Request failed (${response.status})`;
+}
+
+async function workspaceRequest<T>(
+  path: string,
+  accessToken: string,
+  init?: RequestInit
+): Promise<WorkspaceApiResult<T>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...init,
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        ...(init?.body ? { "Content-Type": "application/json" } : {}),
+      },
+      signal: AbortSignal.timeout(WORKSPACE_TIMEOUT_MS),
+    });
+
+    if (!response.ok) {
+      return { ok: false, status: response.status, message: await extractErrorMessage(response) };
+    }
+
+    if (response.status === 204) {
+      return { ok: true, data: undefined as T };
+    }
+
+    const data = (await response.json()) as T;
+    return { ok: true, data };
+  } catch {
+    return { ok: false, status: 0, message: "Could not reach the backend." };
+  }
+}
+
+export async function listWorkspaces(
+  accessToken: string
+): Promise<WorkspaceApiResult<Workspace[]>> {
+  return workspaceRequest<Workspace[]>("/workspaces", accessToken);
+}
+
+export async function createWorkspace(
+  accessToken: string,
+  name: string
+): Promise<WorkspaceApiResult<Workspace>> {
+  return workspaceRequest<Workspace>("/workspaces", accessToken, {
+    method: "POST",
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function updateWorkspace(
+  accessToken: string,
+  workspaceId: string,
+  name: string
+): Promise<WorkspaceApiResult<Workspace>> {
+  return workspaceRequest<Workspace>(`/workspaces/${workspaceId}`, accessToken, {
+    method: "PATCH",
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function deleteWorkspace(
+  accessToken: string,
+  workspaceId: string
+): Promise<WorkspaceApiResult<null>> {
+  return workspaceRequest<null>(`/workspaces/${workspaceId}`, accessToken, {
+    method: "DELETE",
+  });
+}

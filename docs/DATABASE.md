@@ -2,7 +2,7 @@
 
 ## Platform
 
-[Supabase](https://supabase.com) hosts the project's single PostgreSQL database (free plan). The backend talks to it directly through SQLAlchemy's async engine (`asyncpg` driver) — it does **not** use the Supabase Python client. Supabase is used here purely as a managed Postgres host; Supabase Auth and Storage are candidates for a later phase (see Phase 3B below) but are not wired up yet.
+[Supabase](https://supabase.com) hosts the project's single PostgreSQL database (free plan). The backend talks to it directly through SQLAlchemy's async engine (`asyncpg` driver) — it does **not** use the Supabase Python client. A real Supabase project is connected (`apps/api/.env`, `apps/web/.env.local`, both git-ignored). Supabase Auth is wired up (Phase 3B, see below); Supabase Storage remains a candidate for a later phase.
 
 `DATABASE_URL` is a standard Postgres connection string (`postgresql+asyncpg://...`) and is **server-side only**. It is read by `apps/api` from the environment and is never sent to `apps/web` or exposed to browser JavaScript.
 
@@ -21,6 +21,8 @@
 | `id` | UUID | primary key, **no default**, `FOREIGN KEY REFERENCES auth.users(id) ON DELETE CASCADE` (migration `0002`) |
 
 Phase 3A originally kept this table minimal: no default on `id`, no foreign key. Phase 3B (migration `0002`) added the foreign key to Supabase's own `auth.users` table. `id` values come only from the `sub` claim of a verified Supabase Auth access token — the backend never accepts a client-supplied id for a new profile. Rows are created app-level, get-or-create, the first time an authenticated user is seen (`apps/api/app/api/deps.py: get_current_profile`), not via a database trigger.
+
+**`auth.users` stand-in (`apps/api/app/db/models/supabase_auth.py`):** this project doesn't own or migrate `auth.users` — Supabase does — but SQLAlchemy still needs a `Table` object registered in `Base.metadata` to resolve the `profiles.id → auth.users.id` foreign key string reference. That resolution happens during ORM mapper configuration, which runs globally for every mapped class on the *first* ORM query of any kind — so without this stand-in, even a query that never touches `profiles` (e.g. listing workspaces) raised `sqlalchemy.exc.NoReferencedTableError` against the real database. The stand-in declares only an `id` column, is never created via `create_all()` against a real database, and is explicitly excluded from Alembic's autogenerate diffing (`include_object` in `alembic/env.py`) so it can never be mistaken for a table this project should create, alter, or drop.
 
 ### `workspaces`
 
@@ -44,6 +46,24 @@ Phase 3A originally kept this table minimal: no default on `id`, no foreign key.
 
 **Note on `updated_at`:** the SQLAlchemy model sets `onupdate=func.now()` on `workspaces.updated_at`. This is ORM-level behavior — it only fires when a row is updated through SQLAlchemy. It is **not** a Postgres trigger, so a row updated by raw SQL (e.g. directly in the Supabase SQL editor) will not have `updated_at` bumped automatically.
 
+### Workspace ownership (Phase 3C)
+
+`workspaces` has no `owner_id` column. Instead, the member row created alongside a new workspace is written with `role = "owner"` instead of the default `"member"` — `workspace_members.role` already existed for exactly this purpose, so no migration was needed. There's currently no invite flow, so in practice every workspace has exactly one member (its owner); authorization checks membership only, not role — see `docs/PRODUCT_REQUIREMENTS.md`'s explicit MVP non-goal on role-granularity.
+
+### Workspace API (Phase 3C)
+
+`apps/api/app/api/routes/workspaces.py` exposes:
+
+| Method | Path | Notes |
+|---|---|---|
+| `POST` | `/workspaces` | Creates a workspace; caller becomes its `"owner"`. |
+| `GET` | `/workspaces` | Lists the caller's workspaces, newest first. |
+| `GET` | `/workspaces/{id}` | 404 if the workspace doesn't exist *or* the caller isn't a member — never 403, so a caller can't distinguish the two cases. |
+| `PATCH` | `/workspaces/{id}` | Renames a workspace the caller belongs to. |
+| `DELETE` | `/workspaces/{id}` | Deletes a workspace the caller belongs to; `workspace_members` rows cascade via the existing FK. |
+
+All four member-scoped routes share one dependency, `get_workspace_access` (`apps/api/app/api/deps.py`), which does the membership check in a single query.
+
 ## Readiness endpoint
 
 `GET /ready` (`apps/api/app/api/routes/ready.py`) reports whether the backend can reach the database:
@@ -59,9 +79,9 @@ This is separate from `GET /health`, which reports only that the process is runn
 
 Migrations live in `apps/api/alembic/`, configured for SQLAlchemy's async engine. `alembic/env.py` reads the connection string from `DATABASE_URL` via `app.core.config.settings` — the connection string is never written into `alembic.ini`.
 
-The initial migration (`alembic/versions/0001_initial_schema.py`) and the Phase 3B migration (`alembic/versions/0002_profiles_auth_fk.py`, adding `profiles.id → auth.users.id`) are both **hand-written**, not autogenerated, because `alembic revision --autogenerate` needs a live database connection to diff against — and this project's local development workflow does not connect to the real Supabase database. Neither has been applied to a real database yet.
+The initial migration (`alembic/versions/0001_initial_schema.py`) and the Phase 3B migration (`alembic/versions/0002_profiles_auth_fk.py`, adding `profiles.id → auth.users.id`) were both **hand-written**, not autogenerated, because `alembic revision --autogenerate` needs a live database connection to diff against, and neither was written with one. Both have since been applied to the real Supabase project (`alembic upgrade head`) — the schema above now exists there as described. No schema change was needed for Phase 3C (workspace management); it reuses this schema as-is.
 
-To apply migrations against a real database (not done as part of building this phase — requires a configured `DATABASE_URL` pointing at an actual Supabase project):
+To apply migrations against a real database:
 
 ```powershell
 cd apps/api
@@ -73,7 +93,6 @@ To create a new migration once real schema changes are needed against a real dat
 
 ## What's not built yet
 
-- Migration `0002` (`profiles.id → auth.users.id`) has not been applied to any real database — `alembic upgrade head` has not been run.
-- No workspace-creation or membership-management API endpoints exist yet — Phase 3B only added a workspace-membership *lookup* foundation for future authorization checks, not workspace CRUD.
-- Row-Level Security (RLS) policies are not configured; access control is expected to be enforced in the FastAPI layer for now, since the backend connects with a direct Postgres connection rather than through Supabase's client libraries.
-- No real Supabase project has been created or connected to as part of this work — see `docs/DECISIONS.md` for the Phase 3B Supabase Auth design.
+- Row-Level Security (RLS) policies are not configured; access control is enforced in the FastAPI layer (`get_workspace_access`) instead, since the backend connects with a direct Postgres connection rather than through Supabase's client libraries.
+- No workspace invite/membership-management endpoints — a workspace currently gets members only via `POST /workspaces` (the creator, as `"owner"`); there's no way to add a second member yet.
+- No per-role permission differences (e.g. only the owner may delete) — deliberately out of scope for MVP, see `docs/PRODUCT_REQUIREMENTS.md`.

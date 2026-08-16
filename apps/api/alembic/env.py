@@ -17,6 +17,18 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
+def _include_object(object_, name, type_, reflected, compare_to) -> bool:
+    """Excludes Supabase-owned tables (the "auth" schema) from autogenerate
+    diffing. app/db/models/supabase_auth.py registers a minimal stand-in for
+    auth.users purely so SQLAlchemy can resolve profiles.id's foreign key —
+    autogenerate must never try to create/alter/drop the real table based on
+    that one-column stand-in.
+    """
+    if type_ == "table" and getattr(object_, "schema", None) == "auth":
+        return False
+    return True
+
+
 def get_url() -> str:
     if not settings.database_url:
         raise RuntimeError(
@@ -32,13 +44,18 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_object=_include_object,
     )
     with context.begin_transaction():
         context.run_migrations()
 
 
 def do_run_migrations(connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        include_object=_include_object,
+    )
     with context.begin_transaction():
         context.run_migrations()
 

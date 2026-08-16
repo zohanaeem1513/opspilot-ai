@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass
 from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import TokenVerificationError, verify_access_token
 from app.db.models.profile import Profile
+from app.db.models.workspace import Workspace
+from app.db.models.workspace_member import WorkspaceMember
 from app.db.session import get_db
 
 
@@ -60,3 +64,38 @@ async def get_current_profile(
     await db.commit()
     await db.refresh(profile)
     return profile
+
+
+@dataclass
+class WorkspaceAccess:
+    """A workspace the caller is confirmed to be a member of, plus their
+    role in it. Returned by get_workspace_access so route handlers never
+    need to re-check membership themselves."""
+
+    workspace: Workspace
+    role: str
+
+
+async def get_workspace_access(
+    workspace_id: uuid.UUID,
+    profile: Annotated[Profile, Depends(get_current_profile)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> WorkspaceAccess:
+    """Loads a workspace only if the caller belongs to it. A single query
+    covers both "workspace doesn't exist" and "not a member" so a 404
+    never reveals which case applies — a caller can't use this to probe
+    for other users' workspace UUIDs."""
+    result = await db.execute(
+        select(Workspace, WorkspaceMember.role)
+        .join(WorkspaceMember, WorkspaceMember.workspace_id == Workspace.id)
+        .where(
+            WorkspaceMember.workspace_id == workspace_id,
+            WorkspaceMember.profile_id == profile.id,
+        )
+    )
+    row = result.first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="workspace not found")
+
+    workspace, role = row
+    return WorkspaceAccess(workspace=workspace, role=role)
