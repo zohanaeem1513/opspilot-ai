@@ -15,6 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { DocumentManager } from "@/components/workspaces/document-manager";
 import type { Workspace } from "@/lib/api";
 
 const inputClassName =
@@ -207,6 +208,8 @@ export function WorkspaceManager({
                     </div>
                   )}
                 </div>
+
+                <DocumentManager key={selected.id} workspaceId={selected.id} />
               </div>
             )}
           </div>

@@ -153,3 +153,58 @@ export async function deleteWorkspace(
     method: "DELETE",
   });
 }
+
+export interface Document {
+  id: string;
+  filename: string;
+  content_type: string;
+  size_bytes: number;
+  created_at: string;
+}
+
+const UPLOAD_TIMEOUT_MS = 20000;
+
+export async function listDocuments(
+  accessToken: string,
+  workspaceId: string
+): Promise<WorkspaceApiResult<Document[]>> {
+  return workspaceRequest<Document[]>(`/workspaces/${workspaceId}/documents`, accessToken);
+}
+
+export async function uploadDocument(
+  accessToken: string,
+  workspaceId: string,
+  file: File
+): Promise<WorkspaceApiResult<Document>> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/workspaces/${workspaceId}/documents`, {
+      method: "POST",
+      cache: "no-store",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: formData,
+      signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
+    });
+
+    if (!response.ok) {
+      return { ok: false, status: response.status, message: await extractErrorMessage(response) };
+    }
+
+    const data = (await response.json()) as Document;
+    return { ok: true, data };
+  } catch {
+    return { ok: false, status: 0, message: "Could not reach the backend." };
+  }
+}
+
+export async function deleteDocument(
+  accessToken: string,
+  workspaceId: string,
+  documentId: string
+): Promise<WorkspaceApiResult<null>> {
+  return workspaceRequest<null>(`/workspaces/${workspaceId}/documents/${documentId}`, accessToken, {
+    method: "DELETE",
+  });
+}

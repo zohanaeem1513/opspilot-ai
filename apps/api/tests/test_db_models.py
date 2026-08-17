@@ -17,7 +17,7 @@ the old stand-in lived only in that test file, not in production code).
 from sqlalchemy.orm import configure_mappers
 
 from app.db.base import Base
-from app.db.models import Profile, Workspace, WorkspaceMember  # noqa: F401
+from app.db.models import Document, Profile, Workspace, WorkspaceMember  # noqa: F401
 
 
 def test_mapper_configuration_resolves_auth_users_fk():

@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import TokenVerificationError, verify_access_token
+from app.core.storage import DocumentStorage, StorageNotConfiguredError, get_storage_client
 from app.db.models.profile import Profile
 from app.db.models.workspace import Workspace
 from app.db.models.workspace_member import WorkspaceMember
@@ -99,3 +100,12 @@ async def get_workspace_access(
 
     workspace, role = row
     return WorkspaceAccess(workspace=workspace, role=role)
+
+
+def get_storage() -> DocumentStorage:
+    """FastAPI dependency seam — tests override this to inject a fake
+    storage backend without real Supabase Storage credentials."""
+    try:
+        return get_storage_client()
+    except StorageNotConfiguredError as exc:
+        raise HTTPException(status_code=503, detail="document storage is not configured") from exc

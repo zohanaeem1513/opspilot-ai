@@ -2,8 +2,8 @@
 
 An intelligent business-operations platform: upload internal documents, ask questions over them with cited sources (RAG), analyze customer complaints with an AI agent, draft responses, recommend actions, require human approval before anything consequential happens, and track the resulting tasks — with full visibility into what the AI agent did and why.
 
-> **Status: Phase 3C — Workspace Management (done).**
-> A real Supabase project is connected (Postgres + Auth); migrations `0001` and `0002` have been applied to it. `apps/api` verifies Supabase Auth access tokens locally (ES256/JWKS for this project, though HS256 is also supported — no algorithm is hard-coded), exposes a protected `GET /me`, and creates a `profiles` row for each newly authenticated user. Workspace management (`POST/GET /workspaces`, `GET/PATCH/DELETE /workspaces/{id}`) is implemented on top of the existing `workspaces`/`workspace_members` schema — no new migration was needed. `pytest` (40/40, including tests run against an in-memory SQLite database, no real Supabase credentials required), `ruff check`, and `ruff format --check` all pass. `apps/web` has Supabase login/registration/logout pages, a session-refreshing middleware guarding `/dashboard`, and a dashboard that creates, lists, renames, and deletes real workspaces via Next.js Server Actions. `npm run lint`, `npm run typecheck`, and `npm run build` all pass. The register → login → `/dashboard` → workspace-management flow has been manually confirmed working end-to-end in the browser against the real Supabase project, including workspace creation and the `"owner"` role showing correctly. See [docs/ROADMAP.md](docs/ROADMAP.md) for what's built vs. planned and [docs/DECISIONS.md](docs/DECISIONS.md) for the design decisions.
+> **Status: Phase 4 — Document Upload & Storage (in progress).**
+> Phase 3 (database, Supabase Auth, workspace management) is done and confirmed working end-to-end against the real Supabase project. Phase 4 adds document upload: `apps/api` now exposes `POST/GET /workspaces/{id}/documents` and `GET/DELETE /workspaces/{id}/documents/{document_id}`, storing metadata in a new `documents` table (migration `0003`) and file bytes in a private Supabase Storage bucket via a new Storage abstraction (`app/core/storage.py`). `apps/web`'s dashboard now has an upload form and document list per workspace. `pytest` (52/52), `ruff check`, `ruff format --check`, `npm run lint`, `npm run typecheck`, and `npm run build` all pass — but the Supabase Storage bucket has not yet been created in the real project, and upload has not yet been exercised against real Supabase Storage or in a real browser. See [docs/ROADMAP.md](docs/ROADMAP.md) for what's built vs. planned and [docs/DECISIONS.md](docs/DECISIONS.md) for the design decisions.
 
 This is a portfolio project built to demonstrate practical, production-style AI engineering: Retrieval-Augmented Generation, stateful AI agents, tool calling, human-in-the-loop workflows, structured outputs, agent execution tracing, and evaluation/feedback — on top of a real FastAPI + Next.js application.
 
@@ -22,8 +22,8 @@ All choices above target a **$0 cost** setup suitable for a public portfolio dem
 ```
 opspilot-ai/
 ├── apps/
-│   ├── web/     # Next.js frontend (auth pages + workspace-management dashboard)
-│   └── api/     # FastAPI backend (health/readiness, Supabase Auth, workspace API)
+│   ├── web/     # Next.js frontend (auth pages + workspace/document dashboard)
+│   └── api/     # FastAPI backend (health/readiness, Supabase Auth, workspace + document API)
 ├── docs/        # Planning and architecture documentation
 ├── README.md
 ├── CLAUDE.md
@@ -49,7 +49,8 @@ opspilot-ai/
 - Supabase Auth access tokens are verified locally (`app/core/security.py`) — HS256 with a shared secret or JWKS with asymmetric keys, whichever the Supabase project actually uses (this project uses ES256/JWKS); no algorithm is hard-coded, and no Supabase SDK or service-role key is involved.
 - A protected `GET /me` endpoint and an app-level profile get-or-create (`app/api/deps.py`) demonstrate the auth flow end-to-end; `profiles.id` has a foreign key to `auth.users.id` (migration `0002`).
 - Workspace management is implemented: `POST/GET /workspaces` and `GET/PATCH/DELETE /workspaces/{id}`, authorized per-caller via `get_workspace_access` (`app/api/deps.py`) — a workspace that doesn't exist and one the caller isn't a member of both return 404, never 403. No new migration was needed; workspace ownership is represented by `workspace_members.role = "owner"` on the creating member. See [docs/DATABASE.md](docs/DATABASE.md).
-- pytest passed — 40/40, covering health-check, readiness, database-session, JWT verification (both signing paths), `/me`, the workspace API (including cross-user access-denial cases), and ORM mapper configuration, all using mocked/local-only behavior — the workspace tests run against an in-memory SQLite database, not real Supabase credentials.
+- Document upload is implemented: `POST/GET /workspaces/{id}/documents` and `GET/DELETE /workspaces/{id}/documents/{document_id}`, reusing the same `get_workspace_access` authorization. Document metadata lives in a new `documents` table (migration `0003`); the file bytes go to a private Supabase Storage bucket via a small storage abstraction (`app/core/storage.py`) that calls Supabase's Storage REST API directly (no SDK). This is the one place in the backend that uses Supabase's service_role key, since the bucket has no RLS policies — see [docs/DECISIONS.md](docs/DECISIONS.md). **The real Storage bucket has not been created yet and this has not been tested against real Supabase Storage** — only against an in-memory fake used by tests.
+- pytest passed — 52/52, covering health-check, readiness, database-session, JWT verification (both signing paths), `/me`, the workspace API, the document API (including cross-user access-denial and upload-validation cases), and ORM mapper configuration, all using mocked/local-only behavior — the workspace and document tests run against an in-memory SQLite database and a fake storage backend, not real Supabase credentials.
 - `profiles.id`'s foreign key to Supabase's `auth.users.id` needs a matching `Table` object in SQLAlchemy's metadata to resolve — production code registers a minimal stand-in for it (`app/db/models/supabase_auth.py`), excluded from Alembic autogenerate so it's never mistaken for a table this project should manage. See [docs/DECISIONS.md](docs/DECISIONS.md).
 - App import check passed.
 - Live `GET /health` check against a running `uvicorn` server passed.
@@ -64,6 +65,7 @@ opspilot-ai/
 - Manual visual verification of the layout at a narrow/mobile viewport is **pending** — responsive Tailwind classes are implemented, but no browser/viewport tool was available in the development environment to confirm the result visually.
 - `/login`, `/register`, `/dashboard` pages, session-refreshing middleware (`src/middleware.ts`), and Supabase browser/server client helpers (`src/lib/supabase/`), using `@supabase/supabase-js` and `@supabase/ssr`. The register → login → `/dashboard` flow has been confirmed working against the real, connected Supabase project.
 - The dashboard fetches, creates, renames, and deletes real workspaces via Next.js Server Actions (`src/app/dashboard/actions.ts`) that resolve the session server-side and call the backend — the browser never receives `API_BASE_URL`, `DATABASE_URL`, or any service-role key.
+- Each workspace now has a document upload form and document list (`src/components/workspaces/document-manager.tsx`), backed by the same Server Actions pattern.
 
 No AI integration has been built yet. Development proceeds one phase at a time; see the roadmap for details.
 

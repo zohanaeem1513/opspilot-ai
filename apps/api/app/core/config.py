@@ -24,5 +24,19 @@ class Settings(BaseSettings):
     # proceed at all (see app/core/security.py).
     supabase_jwt_issuer: str | None = None
 
+    # Supabase Storage — introduced in Phase 4. Document files live in a
+    # private Storage bucket; the backend calls Supabase's Storage REST API
+    # directly via httpx (no Storage SDK). A private bucket has no RLS
+    # policies configured (this project doesn't use Storage RLS, matching
+    # the FastAPI-layer-only authorization already used for the database —
+    # see docs/DATABASE.md), so writes require Supabase's service_role key,
+    # not the anon key. This is the same powerful key Phase 3B deliberately
+    # avoided for direct database access; here its use is narrowly scoped to
+    # app/core/storage.py only, never used for Postgres access, and never
+    # sent to apps/web. supabase_url (above) doubles as the Storage API's
+    # host, so no separate storage URL setting is needed.
+    supabase_service_role_key: str | None = None
+    supabase_storage_bucket: str = "documents"
+
 
 settings = Settings()

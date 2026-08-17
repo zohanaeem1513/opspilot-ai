@@ -15,12 +15,13 @@ dependencies = [
     "asyncpg",
     "alembic",
     "pyjwt[crypto]",
+    "python-multipart",
+    "httpx",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest",
-    "httpx",
     "ruff",
     "aiosqlite",
 ]
