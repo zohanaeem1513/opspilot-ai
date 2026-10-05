@@ -13,6 +13,10 @@ from app.core.storage import DocumentStorage, StorageError
 from app.db.models.document import Document
 from app.db.models.profile import Profile
 from app.db.session import get_db
+from app.services.document_processing import (
+    DocumentProcessingError,
+    process_document,
+)
 
 router = APIRouter(prefix="/workspaces/{workspace_id}/documents", tags=["documents"])
 
@@ -25,8 +29,9 @@ class DocumentResponse(BaseModel):
     filename: str
     content_type: str
     size_bytes: int
+    status: str
+    processing_error: str | None
     created_at: datetime
-
 
 def _to_response(document: Document) -> DocumentResponse:
     return DocumentResponse(
@@ -34,6 +39,8 @@ def _to_response(document: Document) -> DocumentResponse:
         filename=document.filename,
         content_type=document.content_type,
         size_bytes=document.size_bytes,
+        status=document.status,
+        processing_error=document.processing_error,
         created_at=document.created_at,
     )
 
@@ -99,6 +106,10 @@ async def upload_document(
         raise HTTPException(status_code=500, detail="failed to save document") from exc
 
     await db.refresh(document)
+    try:
+       await process_document(document, db, storage)
+    except DocumentProcessingError:
+       pass
     return _to_response(document)
 
 

@@ -20,6 +20,9 @@ class DocumentStorage(ABC):
     async def upload(self, path: str, content: bytes, content_type: str) -> None: ...
 
     @abstractmethod
+    async def download(self, path: str) -> bytes: ...
+
+    @abstractmethod
     async def delete(self, path: str) -> None: ...
 
 
@@ -50,6 +53,23 @@ class SupabaseStorage(DocumentStorage):
             )
         if response.status_code >= 400:
             raise StorageError(f"upload failed with status {response.status_code}")
+        
+    async def download(self, path: str) -> bytes:
+         url = f"{self._base_url}/object/{self._bucket}/{path}"
+
+         async with httpx.AsyncClient(timeout=30) as client:
+             response = await client.get(
+                 url,
+                 headers=self._headers(),
+        )
+
+         if response.status_code >= 400:
+            raise StorageError(
+            f"download failed with status {response.status_code}"
+        )
+
+         return response.content   
+
 
     async def delete(self, path: str) -> None:
         url = f"{self._base_url}/object/{self._bucket}"

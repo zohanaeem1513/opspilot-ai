@@ -38,14 +38,20 @@ async def _override_get_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 class _FakeStorage(DocumentStorage):
-    """In-memory stand-in for Supabase Storage — no real credentials or
-    network access needed to test upload/list/get/delete."""
+    """In-memory stand-in for Supabase Storage.
+
+    No real credentials or network access are needed to test
+    upload/download/list/get/delete.
+    """
 
     def __init__(self) -> None:
         self.objects: dict[str, bytes] = {}
 
     async def upload(self, path: str, content: bytes, content_type: str) -> None:
         self.objects[path] = content
+
+    async def download(self, path: str) -> bytes:
+        return self.objects[path]
 
     async def delete(self, path: str) -> None:
         self.objects.pop(path, None)

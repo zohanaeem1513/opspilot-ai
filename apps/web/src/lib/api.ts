@@ -159,10 +159,12 @@ export interface Document {
   filename: string;
   content_type: string;
   size_bytes: number;
+  status: string;
+  processing_error: string | null;
   created_at: string;
 }
 
-const UPLOAD_TIMEOUT_MS = 20000;
+const UPLOAD_TIMEOUT_MS = 120000;
 
 export async function listDocuments(
   accessToken: string,

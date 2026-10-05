@@ -99,12 +99,25 @@ export function DocumentManager({ workspaceId }: { workspaceId: string }) {
               className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm"
             >
               <div className="min-w-0">
-                <p className="truncate font-medium">{document.filename}</p>
-                <p className="text-xs text-muted-foreground">
-                  {formatSize(document.size_bytes)} &middot;{" "}
-                  {new Date(document.created_at).toLocaleString()}
-                </p>
-              </div>
+  <div className="flex items-center gap-2">
+    <p className="truncate font-medium">{document.filename}</p>
+
+    <span className="rounded-full border px-2 py-0.5 text-xs capitalize">
+      {document.status}
+    </span>
+  </div>
+
+  <p className="text-xs text-muted-foreground">
+    {formatSize(document.size_bytes)} &middot;{" "}
+    {new Date(document.created_at).toLocaleString()}
+  </p>
+
+  {document.processing_error && (
+    <p className="mt-1 text-xs text-destructive">
+      {document.processing_error}
+    </p>
+  )}
+</div>
               <Button
                 type="button"
                 variant="destructive"
