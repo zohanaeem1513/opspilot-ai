@@ -17,6 +17,9 @@ dependencies = [
     "pyjwt[crypto]",
     "python-multipart",
     "httpx",
+    "pypdf",
+    "sentence-transformers",
+    "pgvector",
 ]
 
 [project.optional-dependencies]
