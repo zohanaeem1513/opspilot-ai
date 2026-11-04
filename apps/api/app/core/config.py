@@ -38,5 +38,16 @@ class Settings(BaseSettings):
     supabase_service_role_key: str | None = None
     supabase_storage_bucket: str = "documents"
 
+    supabase_service_role_key: str | None = None
+    supabase_storage_bucket: str = "documents"
+
+    # AI generation — introduced in Phase 6.
+    # Provider credentials and configuration remain backend-only.
+    ai_provider: str = "ollama"
+    gemini_api_key: str | None = None
+    gemini_model: str = "gemini-3.8-flash"
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_model: str = "qwen3:4b-instruct"
+
 
 settings = Settings()
